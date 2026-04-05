@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Two AI Engine v2</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f3; color: #1a1a1a; font-size: 14px; line-height: 1.6; }
+  
+  .header { background: #1a1a1a; color: #f5f5f3; padding: 1rem 2rem; display: flex; align-items: center; justify-content: space-between; }
+  .header h1 { font-size: 15px; font-weight: 500; letter-spacing: 0.02em; }
+  .header .sub { font-size: 12px; color: #888; }
+
+  .main { max-width: 960px; margin: 0 auto; padding: 2rem; }
+
+  .setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+  
+  .panel { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 1.25rem; }
+  .panel.ai1 { border-top: 3px solid #4f46e5; }
+  .panel.ai2 { border-top: 3px solid #0891b2; }
+  .panel-label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 10px; }
+  .panel.ai1 .panel-label { color: #4f46e5; }
+  .panel.ai2 .panel-label { color: #0891b2; }
+
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 11px; color: #666; margin-bottom: 4px; font-weight: 500; }
+  .field input, .field textarea, .field select { width: 100%; padding: 8px 10px; border: 1px solid #e5e5e5; border-radius: 6px; font-size: 13px; font-family: inherit; color: #1a1a1a; background: #fafafa; transition: border 0.15s; resize: vertical; }
+  .field input:focus, .field textarea:focus, .field select:focus { outline: none; border-color: #999; background: #fff; }
+  .field textarea { min-height: 90px; }
+
+  .config-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+  .config-panel { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 1.25rem; }
+  .config-panel .panel-label { color: #555; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 10px; }
+
+  .api-warning { background: #fef9c3; border: 1px solid #fde047; border-radius: 8px; padding: 10px 14px; font-size: 12px; color: #713f12; margin-bottom: 1rem; line-height: 1.5; }
+  .api-warning strong { display: block; margin-bottom: 2px; }
+
+  .run-row { display: flex; gap: 10px; margin-bottom: 1.5rem; align-items: center; }
+  .btn-run { flex: 1; padding: 12px; font-size: 14px; font-weight: 600; background: #1a1a1a; color: #fff; border: none; border-radius: 8px; cursor: pointer; transition: background 0.15s; letter-spacing: 0.01em; }
+  .btn-run:hover { background: #333; }
+  .btn-run:disabled { background: #ccc; cursor: not-allowed; }
+  .btn-clear { padding: 12px 20px; font-size: 13px; background: #fff; color: #666; border: 1px solid #e5e5e5; border-radius: 8px; cursor: pointer; }
+  .btn-clear:hover { background: #f5f5f5; }
+
+  .progress { display: none; align-items: center; gap: 10px; margin-bottom: 1rem; padding: 10px 14px; background: #fff; border: 1px solid #e5e5e5; border-radius: 8px; }
+  .progress.active { display: flex; }
+  .progress-text { font-size: 13px; color: #555; }
+  .spinner { width: 16px; height: 16px; border: 2px solid #e5e5e5; border-top-color: #1a1a1a; border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .exchange { display: flex; flex-direction: column; gap: 12px; }
+
+  .message { border-radius: 10px; padding: 1rem 1.25rem; max-width: 85%; }
+  .message.ai1 { background: #eef2ff; border: 1px solid #c7d2fe; align-self: flex-start; }
+  .message.ai2 { background: #ecfeff; border: 1px solid #a5f3fc; align-self: flex-end; }
+  .message.system { background: #f5f5f3; border: 1px solid #e5e5e5; align-self: center; max-width: 100%; text-align: center; }
+  .message.output { background: #f0fdf4; border: 1px solid #86efac; align-self: stretch; max-width: 100%; }
+
+  .msg-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .msg-name { font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+  .message.ai1 .msg-name { color: #4f46e5; }
+  .message.ai2 .msg-name { color: #0891b2; }
+  .message.output .msg-name { color: #16a34a; }
+  .msg-round { font-size: 10px; color: #999; }
+  .msg-text { font-size: 13px; line-height: 1.7; color: #1a1a1a; white-space: pre-wrap; word-break: break-word; }
+  .message.system .msg-text { font-size: 12px; color: #666; }
+
+  .empty-state { text-align: center; padding: 3rem 2rem; color: #999; }
+  .empty-state .big { font-size: 32px; margin-bottom: 8px; }
+  .empty-state p { font-size: 13px; line-height: 1.6; max-width: 320px; margin: 0 auto; }
+
+  .preset-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1rem; }
+  .preset-btn { font-size: 11px; padding: 5px 10px; border: 1px solid #e5e5e5; border-radius: 20px; background: #fff; cursor: pointer; color: #555; transition: all 0.15s; }
+  .preset-btn:hover { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+
+  .output-section { margin-top: 1rem; }
+  .output-label { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: #16a34a; margin-bottom: 8px; }
+
+  .tabs { display: flex; gap: 0; margin-bottom: 1.5rem; border-bottom: 2px solid #e5e5e5; }
+  .tab { padding: 10px 20px; font-size: 13px; font-weight: 500; cursor: pointer; color: #888; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; background: none; border-top: none; border-left: none; border-right: none; }
+  .tab.active { color: #1a1a1a; border-bottom-color: #1a1a1a; }
+  .tab:hover { color: #555; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .uc-hero { background: #1a1a1a; color: #f5f5f3; border-radius: 10px; padding: 1.5rem; margin-bottom: 1rem; }
+  .uc-hero h2 { font-size: 16px; font-weight: 500; margin-bottom: 6px; }
+  .uc-hero p { font-size: 12px; color: #888; line-height: 1.6; max-width: 600px; }
+  .uc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+  .uc-panel { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 1.25rem; }
+  .uc-domain-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 1rem; }
+  .domain-chip { padding: 8px 10px; font-size: 12px; border: 1px solid #e5e5e5; border-radius: 6px; background: #fafafa; cursor: pointer; text-align: center; color: #555; transition: all 0.15s; }
+  .domain-chip:hover { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  .domain-chip.on { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  .uc-results { display: flex; flex-direction: column; gap: 10px; margin-top: 1rem; }
+  .uc-card { background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 1rem 1.25rem; }
+  .uc-card-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+  .uc-card-title { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+  .uc-score { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+  .score-hi { background: #dcfce7; color: #166534; }
+  .score-md { background: #fef9c3; color: #713f12; }
+  .score-lo { background: #fee2e2; color: #991b1b; }
+  .uc-card-body { font-size: 12px; color: #555; line-height: 1.6; margin-bottom: 8px; }
+  .uc-meta { display: flex; gap: 12px; flex-wrap: wrap; }
+  .uc-meta-item { font-size: 11px; color: #888; }
+  .uc-meta-item span { font-weight: 600; color: #1a1a1a; }
+  .uc-load-btn { font-size: 11px; padding: 4px 10px; border: 1px solid #e5e5e5; border-radius: 4px; background: #fafafa; cursor: pointer; color: #555; margin-top: 8px; }
+  .uc-load-btn:hover { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  .filter-row { display: flex; gap: 6px; margin-bottom: 1rem; flex-wrap: wrap; }
+  .filter-btn { font-size: 11px; padding: 5px 12px; border: 1px solid #e5e5e5; border-radius: 20px; background: #fff; cursor: pointer; color: #666; }
+  .filter-btn.on { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+
+  @media (max-width: 640px) {
+    .setup-grid, .config-row { grid-template-columns: 1fr; }
+    .message { max-width: 95%; }
+    .main { padding: 1rem; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>Two AI Engine <span style="font-size:11px;color:#666;font-weight:400;margin-left:6px;">v2</span></h1>
+    <div class="sub">Multi-agent orchestration + use case generator</div>
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="api-warning" id="apiWarning">
+    <strong>Setup required — add your API key below</strong>
+    Get your key at console.anthropic.com → API Keys. It stays in your browser only — never sent anywhere except Anthropic's API directly.
+  </div>
+
+  <div class="field" style="margin-bottom:1rem;">
+    <label>Anthropic API Key (shared across all modes)</label>
+    <input type="password" id="globalApiKey" placeholder="sk-ant-..." oninput="syncApiKey(this.value)" />
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('exchange')">⇄ Exchange mode</button>
+    <button class="tab" onclick="switchTab('usecases')">💡 Use case generator</button>
+  </div>
+
+  <div class="tab-content active" id="tab-exchange">
+  <div class="config-row">
+    <div class="config-panel" style="grid-column: span 2;">
+      <div class="panel-label">Topic</div>
+      <div class="field">
+        <label>Topic / Input for the two AIs</label>
+        <textarea id="topic" placeholder="e.g. Should I acquire a small SaaS business or build one from scratch given I have €100K to deploy, a full-time job, and want passive income within 2 years?"></textarea>
+      </div>
+    </div>
+    <div class="config-panel">
+      <div class="panel-label">Exchange settings</div>
+      <div class="field">
+        <label>Number of rounds</label>
+        <select id="rounds">
+          <option value="2">2 rounds (quick)</option>
+          <option value="3" selected>3 rounds (default)</option>
+          <option value="4">4 rounds (deep)</option>
+          <option value="5">5 rounds (exhaustive)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Final output instruction</label>
+        <input type="text" id="outputInstruction" value="Synthesise the key conclusions from this debate into a clear recommendation with 3 action points." />
+      </div>
+      <div class="field">
+        <label>Model</label>
+        <select id="model">
+          <option value="claude-haiku-4-5-20251001">Haiku 4.5 (fast, cheap)</option>
+          <option value="claude-sonnet-4-20250514" selected>Sonnet 4 (recommended)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="setup-grid">
+    <div class="panel ai1">
+      <div class="panel-label">AI #1 — The Proposer</div>
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="ai1name" value="Viktor" />
+      </div>
+      <div class="field">
+        <label>Role / System Prompt</label>
+        <textarea id="ai1prompt">You are Viktor, a pragmatic venture capitalist who has backed 40+ companies. You believe in speed, capital efficiency, and asymmetric upside. You argue forcefully for your position and challenge weak reasoning directly. You are talking with another AI called Maya who will push back on your ideas. Be concise — maximum 150 words per response. Always end with a direct question or challenge to Maya.</textarea>
+      </div>
+    </div>
+    <div class="panel ai2">
+      <div class="panel-label">AI #2 — The Challenger</div>
+      <div class="field">
+        <label>Name</label>
+        <input type="text" id="ai2name" value="Maya" />
+      </div>
+      <div class="field">
+        <label>Role / System Prompt</label>
+        <textarea id="ai2prompt">You are Maya, a forensic risk analyst who has seen hundreds of deals fail. You are deeply skeptical of optimistic projections and always look for the hidden assumption that kills a plan. You don't argue for the sake of it — you identify real structural weaknesses. You are talking with another AI called Viktor who pitches ideas. Be concise — maximum 150 words per response. Always end by identifying the single biggest risk or flaw in Viktor's last point.</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-bottom: 1rem;">
+    <div style="font-size: 11px; color: #666; margin-bottom: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em;">Presets — click to load a configuration</div>
+    <div class="preset-row">
+      <button class="preset-btn" onclick="loadPreset('debate')">VC vs Risk Analyst</button>
+      <button class="preset-btn" onclick="loadPreset('strategy')">Strategist + Executor</button>
+      <button class="preset-btn" onclick="loadPreset('research')">Researcher + Critic</button>
+      <button class="preset-btn" onclick="loadPreset('devil')">Optimist + Devil's Advocate</button>
+      <button class="preset-btn" onclick="loadPreset('socractic')">Socratic Dialogue</button>
+    </div>
+  </div>
+
+  <div class="run-row">
+    <button class="btn-run" id="runBtn" onclick="runExchange()">Run exchange ↗</button>
+    <button class="btn-clear" onclick="clearOutput()">Clear</button>
+  </div>
+
+  <div class="progress" id="progress">
+    <div class="spinner"></div>
+    <div class="progress-text" id="progressText">Starting exchange…</div>
+  </div>
+
+  <div class="exchange" id="exchange">
+    <div class="empty-state">
+      <div class="big">⇄</div>
+      <p>Configure the two AIs above, set your topic, and hit Run. The exchange will appear here in real time.</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const PRESETS = {
+  debate: {
+    ai1name: 'Viktor', ai2name: 'Maya',
+    ai1prompt: "You are Viktor, a pragmatic venture capitalist who has backed 40+ companies. You believe in speed, capital efficiency, and asymmetric upside. You argue forcefully for your position and challenge weak reasoning directly. You are talking with another AI called Maya who will push back on your ideas. Be concise — maximum 150 words per response. Always end with a direct question or challenge to Maya.",
+    ai2prompt: "You are Maya, a forensic risk analyst who has seen hundreds of deals fail. You are deeply skeptical of optimistic projections and always look for the hidden assumption that kills a plan. You don't argue for the sake of it — you identify real structural weaknesses. You are talking with another AI called Viktor who pitches ideas. Be concise — maximum 150 words per response. Always end by identifying the single biggest risk or flaw in Viktor's last point.",
+    outputInstruction: "Synthesise the key conclusions from this debate into a clear recommendation with 3 action points."
+  },
+  strategy: {
+    ai1name: 'Atlas', ai2name: 'Iris',
+    ai1prompt: "You are Atlas, a high-level strategic thinker who operates at the level of systems, trends, and 5-year arcs. You think in frameworks and always ask 'what is the second-order effect?'. You are in dialogue with Iris who translates strategy into execution. Be concise — 150 words max. End each response by handing a specific strategic question to Iris.",
+    ai2prompt: "You are Iris, a ruthless executor who only cares about what can be done this week. You translate Atlas's strategic thinking into concrete actions, and you challenge anything that can't be operationalised in 30 days. Be concise — 150 words max. End each response with the one thing that needs to happen first.",
+    outputInstruction: "Produce a 90-day action plan that integrates both the strategic vision and the execution constraints identified in this exchange."
+  },
+  research: {
+    ai1name: 'Lumen', ai2name: 'Sceptic',
+    ai1prompt: "You are Lumen, a thorough researcher who synthesises information and identifies patterns. You build a comprehensive picture of a topic by layering evidence and examples. You are in dialogue with Sceptic who challenges your conclusions. Be concise — 150 words max. End each response with your strongest finding so far.",
+    ai2prompt: "You are Sceptic, a critical thinker who challenges every claim Lumen makes. You ask: what's the counter-evidence? What's the sample size? Who benefits from this narrative? You don't tear down for sport — you strengthen the analysis by forcing rigour. Be concise — 150 words max. End each response with the one thing Lumen hasn't accounted for.",
+    outputInstruction: "Produce a balanced summary of what was established as reliable versus what remains uncertain or contested."
+  },
+  devil: {
+    ai1name: 'Sunny', ai2name: 'Shade',
+    ai1prompt: "You are Sunny, an optimistic entrepreneur who sees opportunity everywhere and genuinely believes in the upside of every idea. You are energetic, concrete, and specific about why something will work. You are in dialogue with Shade who will challenge you. Be concise — 150 words max. Always end with the strongest possible case for your position.",
+    ai2prompt: "You are Shade, the devil's advocate. Your job is to find every flaw, assumption, and hidden risk in Sunny's thinking. You are not negative for sport — you stress-test so the final plan is bulletproof. Be concise — 150 words max. Always end with the one assumption that, if wrong, kills everything.",
+    outputInstruction: "Identify the 3 most critical risks and the 3 strongest opportunities that emerged from this exchange. Then give a go/no-go recommendation."
+  },
+  socractic: {
+    ai1name: 'Sophos', ai2name: 'Aporia',
+    ai1prompt: "You are Sophos, a Socratic guide who helps clarify thinking through questions and gentle reframing. You never give direct answers — you help the other party discover insights themselves. You are in dialogue with Aporia. Be concise — 120 words max. Always end with a probing question that advances the inquiry.",
+    ai2prompt: "You are Aporia, a genuine seeker who starts each exchange confused and ends it with more clarity. You engage honestly with Sophos's questions and share your real reasoning process, including your uncertainties. Be concise — 120 words max. Always end by stating what you now understand more clearly and what still puzzles you.",
+    outputInstruction: "Summarise the key insights that emerged through this dialogue and the questions that remain productively open."
+  }
+};
+
+function loadPreset(key) {
+  const p = PRESETS[key];
+  document.getElementById('ai1name').value = p.ai1name;
+  document.getElementById('ai2name').value = p.ai2name;
+  document.getElementById('ai1prompt').value = p.ai1prompt;
+  document.getElementById('ai2prompt').value = p.ai2prompt;
+  document.getElementById('outputInstruction').value = p.outputInstruction;
+}
+
+function clearOutput() {
+  document.getElementById('exchange').innerHTML = '<div class="empty-state"><div class="big">⇄</div><p>Configure the two AIs above, set your topic, and hit Run. The exchange will appear here in real time.</p></div>';
+}
+
+function addMessage(role, name, text, round) {
+  const exchange = document.getElementById('exchange');
+  if (exchange.querySelector('.empty-state')) exchange.innerHTML = '';
+  
+  const div = document.createElement('div');
+  div.className = 'message ' + role;
+  
+  const roundLabel = round ? `<span class="msg-round">Round ${round}</span>` : '';
+  div.innerHTML = `<div class="msg-header"><span class="msg-name">${name}</span>${roundLabel}</div><div class="msg-text">${text}</div>`;
+  exchange.appendChild(div);
+  div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  return div;
+}
+
+function addSystem(text) {
+  addMessage('system', '', text, null);
+}
+
+async function callClaude(apiKey, model, systemPrompt, messages) {
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01'
+    },
+    body: JSON.stringify({
+      model: model,
+      max_tokens: 600,
+      system: systemPrompt,
+      messages: messages
+    })
+  });
+  
+  if (!response.ok) {
+    const err = await response.text();
+    throw new Error(`API error ${response.status}: ${err}`);
+  }
+  
+  const data = await response.json();
+  return data.content.map(b => b.text || '').join('').trim();
+}
+
+async function runExchange() {
+  const apiKey = document.getElementById('globalApiKey').value.trim();
+  if (!apiKey) { alert('Please enter your Anthropic API key first.'); return; }
+
+  const topic = document.getElementById('topic').value.trim();
+  if (!topic) { alert('Please enter a topic for the exchange.'); return; }
+
+  const ai1name = document.getElementById('ai1name').value.trim() || 'AI #1';
+  const ai2name = document.getElementById('ai2name').value.trim() || 'AI #2';
+  const ai1prompt = document.getElementById('ai1prompt').value.trim();
+  const ai2prompt = document.getElementById('ai2prompt').value.trim();
+  const rounds = parseInt(document.getElementById('rounds').value);
+  const model = document.getElementById('model').value;
+  const outputInstruction = document.getElementById('outputInstruction').value.trim();
+
+  const runBtn = document.getElementById('runBtn');
+  const progress = document.getElementById('progress');
+  const progressText = document.getElementById('progressText');
+
+  runBtn.disabled = true;
+  progress.classList.add('active');
+  clearOutput();
+
+  addSystem(`Exchange begins — Topic: "${topic}"`);
+
+  // Conversation histories for each AI
+  // AI1 sees its own messages as "assistant" and AI2's messages as "user"
+  // AI2 sees its own messages as "assistant" and AI1's messages as "user"
+  let ai1History = [];
+  let ai2History = [];
+
+  // Seed: both AIs get the topic as their first user message
+  const seedMessage = `The topic for our exchange: ${topic}\n\n${ai1name}, please open with your initial position.`;
+  ai1History.push({ role: 'user', content: seedMessage });
+
+  try {
+    let lastAI1Response = '';
+    let lastAI2Response = '';
+
+    for (let round = 1; round <= rounds; round++) {
+      // AI #1 speaks
+      progressText.textContent = `Round ${round}/${rounds} — ${ai1name} thinking…`;
+      const ai1Response = await callClaude(apiKey, model, ai1prompt, ai1History);
+      lastAI1Response = ai1Response;
+      addMessage('ai1', ai1name, ai1Response, round);
+
+      // Update histories
+      ai1History.push({ role: 'assistant', content: ai1Response });
+      ai2History.push({ role: 'user', content: `${ai1name} says: ${ai1Response}` });
+
+      // AI #2 speaks
+      progressText.textContent = `Round ${round}/${rounds} — ${ai2name} thinking…`;
+      const ai2Response = await callClaude(apiKey, model, ai2prompt, ai2History);
+      lastAI2Response = ai2Response;
+      addMessage('ai2', ai2name, ai2Response, round);
+
+      // Update histories
+      ai2History.push({ role: 'assistant', content: ai2Response });
+      ai1History.push({ role: 'user', content: `${ai2name} says: ${ai2Response}` });
+    }
+
+    // Final synthesis — ask AI1 to produce the output
+    if (outputInstruction) {
+      progressText.textContent = 'Generating final output…';
+      addSystem('Exchange complete — generating synthesis…');
+
+      const synthHistory = [
+        ...ai1History,
+        { role: 'user', content: outputInstruction }
+      ];
+
+      const synthesis = await callClaude(apiKey, model, 
+        'You are a neutral synthesiser. Based on the conversation so far, produce the requested output clearly and concisely.',
+        synthHistory
+      );
+
+      const outputDiv = document.createElement('div');
+      outputDiv.className = 'message output';
+      outputDiv.innerHTML = `<div class="msg-header"><span class="msg-name">Synthesis</span></div><div class="msg-text">${synthesis}</div>`;
+      document.getElementById('exchange').appendChild(outputDiv);
+      outputDiv.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+
+  } catch (err) {
+    addSystem(`Error: ${err.message}`);
+  }
+  runBtn.disabled = false;
+  progress.classList.remove('active');
+  progressText.textContent = '';
+}
+
+// ── Tab switching ──────────────────────────────────────────
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelector('[onclick="switchTab(\'' + id + '\')"]').classList.add('active');
+  document.getElementById('tab-' + id).classList.add('active');
+}
+function syncApiKey(val) {
+  var k = document.getElementById('apiKey');
+  if (k) k.value = val;
+}
+</script>
+
+</div><!-- close tab-exchange -->
+
+<!-- ── USE CASE GENERATOR TAB ─────────────────────────────── -->
+<div class="tab-content" id="tab-usecases">
+
+  <div class="uc-hero">
+    <h2>Use case generator</h2>
+    <p>Two agents work together to generate and commercially stress-test use cases for a two-AI platform. The Scout proposes, the Filter kills the weak ones. What survives is worth building.</p>
+  </div>
+
+  <div class="uc-grid">
+    <div class="uc-panel">
+      <div class="panel-label" style="color:#555">Target domain / user type</div>
+      <p style="font-size:12px;color:#888;margin-bottom:10px">Pick one or more, or type your own below</p>
+      <div class="uc-domain-grid" id="domainGrid">
+        <div class="domain-chip" onclick="toggleDomain(this,'business professionals')">Business</div>
+        <div class="domain-chip" onclick="toggleDomain(this,'lawyers and legal professionals')">Legal</div>
+        <div class="domain-chip" onclick="toggleDomain(this,'doctors and healthcare workers')">Healthcare</div>
+        <div class="domain-chip" onclick="toggleDomain(this,'startup founders')">Founders</div>
+        <div class="domain-chip" onclick="toggleDomain(this,'investors and analysts')">Investors</div>
+        <div class="domain-chip" onclick="toggleDomain(this,'writers and content creators')">Creators</div>
+        <div class="domain-chip" onclick="toggleDomain(this,'students and academics')">Academia</div>
+        <div class="domain-chip" onclick="toggleDomain(this,'HR and recruiters')">HR</div>
+        <div class="domain-chip" onclick="toggleDomain(this,'marketers')">Marketing</div>
+        <div class="domain-chip" onclick="toggleDomain(this,'software developers')">Developers</div>
+        <div class="domain-chip" onclick="toggleDomain(this,'real estate professionals')">Real Estate</div>
+        <div class="domain-chip" onclick="toggleDomain(this,'anyone — horizontal use cases')">Everyone</div>
+      </div>
+      <div class="field" style="margin-top:8px">
+        <label>Or describe your own domain</label>
+        <input type="text" id="customDomain" placeholder="e.g. e-commerce store owners, freelance designers…" />
+      </div>
+    </div>
+
+    <div class="uc-panel">
+      <div class="panel-label" style="color:#555">Generation settings</div>
+      <div class="field">
+        <label>Ideas per round</label>
+        <select id="ucIdeasPerRound">
+          <option value="3">3 ideas (fast)</option>
+          <option value="5" selected>5 ideas (default)</option>
+          <option value="8">8 ideas (broad)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Scoring focus</label>
+        <select id="ucScoringFocus">
+          <option value="willingness to pay and monetisation potential">Monetisation potential</option>
+          <option value="ease of build and speed to market">Speed to market</option>
+          <option value="market size and scalability">Scalability</option>
+          <option value="differentiation and defensibility">Defensibility</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Rounds of refinement</label>
+        <select id="ucRounds">
+          <option value="2">2 rounds — quick list</option>
+          <option value="3" selected>3 rounds — refined shortlist</option>
+          <option value="4">4 rounds — deep analysis</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Model</label>
+        <select id="ucModel">
+          <option value="claude-haiku-4-5-20251001">Haiku 4.5 (fast, cheap)</option>
+          <option value="claude-sonnet-4-20250514" selected>Sonnet 4 (recommended)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="run-row">
+    <button class="btn-run" id="ucRunBtn" onclick="runUseCaseGenerator()">Generate use cases ↗</button>
+    <button class="btn-clear" onclick="document.getElementById('ucOutput').innerHTML=''">Clear</button>
+  </div>
+
+  <div class="progress" id="ucProgress">
+    <div class="spinner"></div>
+    <div class="progress-text" id="ucProgressText">Starting…</div>
+  </div>
+
+  <div id="ucOutput"></div>
+
+</div><!-- close tab-usecases -->
+
+</div><!-- close main -->
+
+<script>
+var selectedDomains = [];
+
+function toggleDomain(el, val) {
+  if (el.classList.contains('on')) {
+    el.classList.remove('on');
+    selectedDomains = selectedDomains.filter(function(d) { return d !== val; });
+  } else {
+    el.classList.add('on');
+    selectedDomains.push(val);
+  }
+}
+
+async function runUseCaseGenerator() {
+  const apiKey = document.getElementById('globalApiKey').value.trim();
+  if (!apiKey) { alert('Add your API key at the top of the page first.'); return; }
+
+  const customDomain = document.getElementById('customDomain').value.trim();
+  const domains = selectedDomains.concat(customDomain ? [customDomain] : []);
+  if (!domains.length) { alert('Select at least one domain or type your own.'); return; }
+
+  const ideasPerRound = document.getElementById('ucIdeasPerRound').value;
+  const scoringFocus = document.getElementById('ucScoringFocus').value;
+  const rounds = parseInt(document.getElementById('ucRounds').value);
+  const model = document.getElementById('ucModel').value;
+  const domainStr = domains.join(', ');
+
+  const btn = document.getElementById('ucRunBtn');
+  const progress = document.getElementById('ucProgress');
+  const progressText = document.getElementById('ucProgressText');
+  const output = document.getElementById('ucOutput');
+
+  btn.disabled = true;
+  progress.classList.add('active');
+  output.innerHTML = '';
+
+  const scoutPrompt = 'You are an Opportunity Scout specialising in AI product use cases. Generate specific, concrete use case ideas for a two-AI agent platform — where two AI agents with different roles exchange messages to produce better output than a single AI.\n\nTARGET USERS: ' + domainStr + '\nSCORING FOCUS: ' + scoringFocus + '\n\nFor each idea:\n- Name it clearly (5–8 words)\n- Describe Agent 1 and Agent 2 roles\n- Name the specific pain solved\n- Estimate willingness to pay\n- Rate potential: HIGH / MEDIUM / LOW with one reason\n\nGenerate exactly ' + ideasPerRound + ' ideas. Ideas must REQUIRE two agents — a single prompt cannot produce the same result.\n\nFormat each as:\nIDEA [N]: [Title]\nAGENTS: [Agent 1] vs/+ [Agent 2]\nPAIN: [specific pain]\nWTP: [€X/mo — who pays]\nPOTENTIAL: [HIGH/MEDIUM/LOW — reason]';
+
+  const filterPrompt = 'You are a Commercial Filter — a hard-nosed product investor. Stress-test use case ideas for a two-AI agent platform.\n\nKill ideas where:\n- A single AI prompt produces the same output (two agents add no value)\n- No clear buyer or weak willingness to pay\n- Pain is not acute enough to drive payment\n\nScoring focus: ' + scoringFocus + '\n\nFor survivors, suggest one improvement. End by naming the 1–2 ideas that deserve to survive. Be ruthless.';
+
+  var scoutHistory = [];
+  var filterHistory = [];
+  scoutHistory.push({ role: 'user', content: 'Generate your first ' + ideasPerRound + ' use case ideas for the two-AI platform targeting: ' + domainStr + '. Focus: ' + scoringFocus + '.' });
+
+  const runningDiv = document.createElement('div');
+  runningDiv.style.cssText = 'display:flex;flex-direction:column;gap:10px;';
+  output.appendChild(runningDiv);
+
+  function addRoundHeader(n) {
+    const h = document.createElement('div');
+    h.style.cssText = 'font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#888;padding:6px 0;border-bottom:1px solid #e5e5e5;margin-top:10px;';
+    h.textContent = 'Round ' + n + ' of ' + rounds;
+    runningDiv.appendChild(h);
+  }
+
+  function addAgentBlock(role, color, text) {
+    const d = document.createElement('div');
+    d.style.cssText = 'background:#fff;border:1px solid #e5e5e5;border-left:3px solid ' + color + ';border-radius:8px;padding:12px 14px;';
+    d.innerHTML = '<div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:' + color + ';margin-bottom:6px">' + role + '</div><div style="font-size:13px;line-height:1.7;white-space:pre-wrap;color:#1a1a1a">' + text + '</div>';
+    runningDiv.appendChild(d);
+    d.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }
+
+  try {
+    for (var round = 1; round <= rounds; round++) {
+      addRoundHeader(round);
+
+      progressText.textContent = 'Round ' + round + '/' + rounds + ' — Scout generating…';
+      const scoutResponse = await callClaude(apiKey, model, scoutPrompt, scoutHistory);
+      addAgentBlock('💡 Opportunity Scout', '#4f46e5', scoutResponse);
+      scoutHistory.push({ role: 'assistant', content: scoutResponse });
+      filterHistory.push({ role: 'user', content: 'Scout proposed:\n' + scoutResponse });
+
+      progressText.textContent = 'Round ' + round + '/' + rounds + ' — Filter stress-testing…';
+      const filterResponse = await callClaude(apiKey, model, filterPrompt, filterHistory);
+      addAgentBlock('⚡ Commercial Filter', '#dc2626', filterResponse);
+      filterHistory.push({ role: 'assistant', content: filterResponse });
+      scoutHistory.push({ role: 'user', content: 'Filter feedback:\n' + filterResponse + '\n\nRefine or replace weak ideas and present your improved set.' });
+    }
+
+    progressText.textContent = 'Generating final ranked shortlist…';
+    const synthMessages = scoutHistory.concat([{ role: 'user', content: 'Produce a FINAL RANKED SHORTLIST of the top 3 use cases that survived all rounds. For each:\n\nRANK [N]: [Title]\nAGENTS: [Agent 1] vs/+ [Agent 2]\nUSE CASE: [2 sentences]\nBUYER: [who pays and why]\nPRICE POINT: [€/mo recommendation]\nWHY IT SURVIVES: [one sentence]\n\nEnd with: RECOMMENDED FIRST BUILD — which one to build first and why in 2 sentences.' }]);
+
+    const synthesis = await callClaude(apiKey, model, 'You are a neutral synthesiser. Produce the requested ranked shortlist clearly based on the exchange.', synthMessages);
+
+    const finalDiv = document.createElement('div');
+    finalDiv.style.cssText = 'background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:1.25rem;margin-top:12px;';
+    finalDiv.innerHTML = '<div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#16a34a;margin-bottom:10px;">✓ Final ranked shortlist</div><div style="font-size:13px;line-height:1.8;white-space:pre-wrap;color:#1a1a1a">' + synthesis + '</div>';
+    output.appendChild(finalDiv);
+    finalDiv.scrollIntoView({ behavior: 'smooth', block: 'end' });
+
+  } catch(err) {
+    const errDiv = document.createElement('div');
+    errDiv.style.cssText = 'background:#fee2e2;border:1px solid #fca5a5;border-radius:8px;padding:12px;font-size:13px;color:#991b1b;';
+    errDiv.textContent = 'Error: ' + err.message;
+    output.appendChild(errDiv);
+  }
+
+  btn.disabled = false;
+  progress.classList.remove('active');
+  progressText.textContent = '';
+}
+</script>
+</body>
+</html>

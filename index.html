@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Two AI Engine v6</title>
+<title>Two AI Engine v7</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f3; color: #1a1a1a; font-size: 14px; line-height: 1.6; }
@@ -136,7 +136,7 @@
 
 <div class="header">
   <div>
-    <h1>Two AI Engine <span class="version-badge">v6</span></h1>
+    <h1>Two AI Engine <span class="version-badge">v7</span></h1>
     <div class="sub">Multi-agent orchestration + use case generator</div>
   </div>
 </div>
@@ -248,7 +248,7 @@
 
     <div class="uc-hero">
       <h2>Use case generator</h2>
-      <p>Scout proposes, Filter stress-tests with calibrated kill criteria. What survives is worth building — the synthesiser never returns a null result.</p>
+      <p>Scout proposes, Filter stress-tests with calibrated kill criteria. Survivors are locked — once an idea passes, it cannot be killed in later rounds. Always returns an actionable result.</p>
     </div>
 
     <!-- Domain + settings -->
@@ -528,29 +528,45 @@ async function runUseCaseGenerator() {
     'POTENTIAL: [HIGH/MEDIUM/LOW — one reason]\n\n' +
     'Generate exactly ' + ideasPerRound + ' ideas. Be specific. Reject any idea replicable by a single free chatbot prompt.';
 
-  // ── Filter system prompt v6 (1400 tokens out) ─────────────
-  // Fix: calibrated replicability test with anchor examples
-  // Fix: explicit instruction not to kill entire round
+  // ── Filter system prompt v7 ────────────────────────────────
+  // Fix 1: Replicability test applied at implementation level, not concept level
+  // Fix 2: Survivors explicitly locked — Filter does not re-evaluate passed ideas
+  // Fix 3: No-null-result rule retained from v6
   var filterPrompt =
-    'You are a Commercial Filter. You kill weak ideas — but you are calibrated, not nihilistic. ' +
-    'Your goal is to find the 1–3 ideas worth building, not to eliminate everything.\n\n' +
+    'You are a Commercial Filter. You stress-test new ideas only. Your goal is to find the 1–3 ideas worth building.\n\n' +
+    'CRITICAL RULE — SURVIVOR LOCK: Any idea marked as SURVIVING or CONDITIONAL SURVIVOR from a previous round is LOCKED. ' +
+    'You must not re-evaluate, re-test, or reverse a prior SURVIVES verdict under any circumstances. ' +
+    'Locked survivors are listed at the top of your output as LOCKED SURVIVOR — [name] — carried forward. ' +
+    'Only evaluate ideas that are NEW this round (not previously passed).\n\n' +
     'PLATFORM CONSTRAINTS being enforced:\n' + constraintText + '\n\n' +
     'SCORING FOCUS: ' + scoringFocus + '\n\n' +
-    'Apply these kill tests in order. One sentence verdict per test per idea:\n\n' +
-    'TEST 1 — REPLICABILITY: Kill if a casual user with no domain expertise could paste the inputs into a free chatbot and receive output of equivalent quality and specificity within one prompt.\n' +
-    'CALIBRATION: A generic "summarise this contract" prompt to ChatGPT FAILS this test (replicable = kill). ' +
-    'A two-agent system where Agent 1 extracts clause-level risk signals and Agent 2 benchmarks them against sector norms PASSES this test (not replicable = survives). ' +
-    'Do not kill an idea simply because AI is involved — kill it only if the specific two-agent structure adds nothing over a single prompt.\n\n' +
-    'TEST 2 — PLATFORM CONSTRAINTS: Kill if the idea violates any active constraint. Name the exact constraint it fails.\n\n' +
-    'TEST 3 — URGENCY: Kill if there is no identifiable triggering moment. The buyer must have a reason to pay today, not someday.\n\n' +
-    'TEST 4 — WILLINGNESS TO PAY: Kill if the stated price is implausible given who is buying and what they are getting. Name the specific reason — not just "low WTP" but why for this buyer at this price.\n\n' +
-    'TEST 5 — TWO-AGENT VALUE: Kill if a single well-prompted agent produces equivalent output. The two-agent structure must create genuine value through specialisation, challenge, or iteration.\n\n' +
-    'IMPORTANT: If all ideas in a round fail, do not declare a null result. Instead identify the least-weak idea, state exactly which single change would make it survive, and flag it as CONDITIONAL SURVIVOR with that specific fix required.\n\n' +
+    'KILL TESTS — apply to new ideas only, in order:\n\n' +
+    'TEST 1 — REPLICABILITY (implementation level, not concept level):\n' +
+    'Kill ONLY if a casual user with no domain expertise could paste the inputs into a free chatbot in a SINGLE prompt and receive output of equivalent specificity, structure, and depth.\n' +
+    'CALIBRATION — what PASSES this test (survives):\n' +
+    '- A two-agent system where Agent 1 extracts structured signals from messy user input and Agent 2 stress-tests those signals against domain benchmarks — the sequential specialisation creates depth a single prompt cannot match.\n' +
+    '- Any idea where the first agent\'s OUTPUT is the second agent\'s INPUT in a way that requires genuine iteration.\n' +
+    'CALIBRATION — what FAILS this test (gets killed):\n' +
+    '- The two agents are doing the same thing in parallel — no genuine handoff.\n' +
+    '- A single detailed system prompt to ChatGPT would produce equivalent output.\n' +
+    'DO NOT kill an idea because "AI can address this topic." Kill only if the specific two-agent architecture adds nothing.\n\n' +
+    'TEST 2 — PLATFORM CONSTRAINTS:\n' +
+    'Kill if the idea violates any active constraint. Name the exact constraint.\n' +
+    'REGULATORY PRECISION: A licence is triggered only when the output (a) provides an individualised recommendation to take a specific action AND (b) falls within a protected activity: investment advice on financial instruments (§34f GewO/MiFID II), medical diagnosis or treatment prescription (§1 HeilprG), or legal representation (RDG). ' +
+    'Scenario modelling from user inputs, question checklists, structured information aggregation, and decision preparation documents are NOT regulated activities. Apply this definition precisely.\n\n' +
+    'TEST 3 — URGENCY:\n' +
+    'Kill if there is no identifiable triggering moment. Buyer must have a reason to pay today.\n\n' +
+    'TEST 4 — WILLINGNESS TO PAY:\n' +
+    'Kill if the price is implausible for this buyer at this moment. Name the specific reason.\n\n' +
+    'TEST 5 — TWO-AGENT VALUE:\n' +
+    'Kill if a single well-prompted agent produces equivalent output. The two roles must be genuinely distinct.\n\n' +
+    'NO-NULL RULE: If all new ideas fail and no locked survivors exist, identify the least-weak new idea, state the exact single change that would make it survive, and mark it CONDITIONAL SURVIVOR.\n\n' +
     'OUTPUT FORMAT:\n' +
-    'KILLED — [idea name] — [test number that killed it] — [one sentence reason]\n' +
-    'SURVIVES — [idea name] — [one sentence per test passed]\n' +
-    'CONDITIONAL SURVIVOR (only if all killed) — [idea name] — [exact fix required]\n\n' +
-    'End with: FILTER SUMMARY — [N] survived, [N] killed, [N] conditional. Name the survivors.';
+    'LOCKED SURVIVOR — [name] — carried forward (no re-evaluation)\n' +
+    'SURVIVES — [name] — [one sentence per test passed]\n' +
+    'KILLED — [name] — Test [N] — [one sentence reason]\n' +
+    'CONDITIONAL SURVIVOR — [name] — [exact fix required]\n\n' +
+    'End with: FILTER SUMMARY — [N] locked, [N] new survivors, [N] killed, [N] conditional.';
 
   // ── Output helpers ─────────────────────────────────────────
   var runningDiv = document.createElement('div');
@@ -577,90 +593,116 @@ async function runUseCaseGenerator() {
     return d;
   }
 
-  // ── Main loop — optimised architecture ────────────────────
-  // Scout: accumulates history (needs context of prior rounds)
-  // Filter: STATELESS — fresh each round (only sees current Scout output)
-  // Synthesis: only receives final Scout output + final Filter verdict
+  // ── Main loop v7 — survivor locking ───────────────────────
+  // Scout: accumulates history, told which ideas are locked
+  // Filter: stateless per round, receives locked list so it cannot re-evaluate passed ideas
+  // Synthesis: final Scout + final Filter + locked list only
 
   var scoutHistory = [];
   var lastScoutOutput = '';
   var lastFilterOutput = '';
+  var lockedSurvivors = []; // names that passed Filter — never re-evaluated
 
   scoutHistory.push({
     role: 'user',
-    content: 'Generate your first ' + ideasPerRound + ' use case ideas for the platform targeting: ' + domainStr + '. Focus: ' + scoringFocus + '. All platform constraints apply.'
+    content: 'Generate your first ' + ideasPerRound + ' use case ideas for the platform targeting: ' +
+             domainStr + '. Focus: ' + scoringFocus + '. All platform constraints apply.'
   });
 
   try {
     for (var round = 1; round <= rounds; round++) {
       addRoundHeader(round);
 
-      // Scout call — 800 tokens
+      // Scout call — 900 tokens
       progressText.textContent = 'Round ' + round + '/' + rounds + ' — Scout generating…';
-      var scoutResponse = await callClaude(apiKey, scoutModel, scoutPrompt, scoutHistory, 800);
+      var scoutResponse = await callClaude(apiKey, scoutModel, scoutPrompt, scoutHistory, 900);
       lastScoutOutput = scoutResponse;
       addAgentBlock('💡 Opportunity Scout · ' + scoutModel.split('-')[2], '#4f46e5', scoutResponse);
       scoutHistory.push({ role: 'assistant', content: scoutResponse });
 
-      // Filter call — STATELESS, fresh history, 1400 tokens
+      // Filter call — stateless, receives locked list to prevent re-evaluation
       progressText.textContent = 'Round ' + round + '/' + rounds + ' — Filter stress-testing…';
-      var filterHistory = [{ role: 'user', content: 'Stress-test these Scout proposals:\n\n' + scoutResponse }];
-      var filterResponse = await callClaude(apiKey, filterModel, filterPrompt, filterHistory, 1400);
+      var lockedBlock = lockedSurvivors.length > 0
+        ? 'LOCKED SURVIVORS FROM PREVIOUS ROUNDS (do not re-evaluate — carry forward as-is):\n' +
+          lockedSurvivors.map(function(n){ return '- ' + n; }).join('\n') + '\n\n'
+        : '';
+      var filterHistory = [{
+        role: 'user',
+        content: lockedBlock + 'Stress-test the NEW ideas from this Scout output:\n\n' + scoutResponse
+      }];
+      var filterResponse = await callClaude(apiKey, filterModel, filterPrompt, filterHistory, 1500);
       lastFilterOutput = filterResponse;
       addAgentBlock('⚡ Commercial Filter · ' + filterModel.split('-')[2], '#dc2626', filterResponse);
 
-      // Feed compressed feedback back to Scout (not raw Filter output)
+      // Parse SURVIVES and CONDITIONAL SURVIVOR lines to update locked list
+      filterResponse.split('\n').forEach(function(line) {
+        var m = line.match(/^SURVIVES\s*[-—]\s*(.+?)\s*[-—]/);
+        if (m) { var n = m[1].trim(); if (lockedSurvivors.indexOf(n) === -1) lockedSurvivors.push(n); }
+        var c = line.match(/^CONDITIONAL SURVIVOR\s*[-—]\s*(.+?)\s*[-—]/);
+        if (c) { var cn = c[1].trim(); if (lockedSurvivors.indexOf(cn) === -1) lockedSurvivors.push(cn); }
+      });
+
+      // Show locked survivors in UI
+      if (lockedSurvivors.length > 0) {
+        var lockNote = document.createElement('div');
+        lockNote.style.cssText = 'font-size:11px;color:#16a34a;padding:4px 0 8px;font-weight:500;';
+        lockNote.textContent = '🔒 Locked: ' + lockedSurvivors.join(' · ');
+        runningDiv.appendChild(lockNote);
+      }
+
+      // Compress feedback and feed back to Scout
       if (round < rounds) {
-        // Compress Filter verdict before adding to Scout history
         progressText.textContent = 'Round ' + round + '/' + rounds + ' — Compressing feedback…';
         var compressHistory = [{
           role: 'user',
-          content: 'Compress this Filter verdict into a single paragraph of max 80 words. ' +
-                   'List only: which ideas survived and why, which were killed and the exact reason. No other text.\n\n' + filterResponse
+          content: 'Compress this Filter verdict into max 80 words. List: which ideas survived and why, which were killed and exact reason, any conditional survivors. No other text.\n\n' + filterResponse
         }];
         var compressed = await callClaude(apiKey, synthModel,
           'You are a concise summariser. Compress exactly as instructed. No preamble.',
           compressHistory, 200);
 
+        var lockedNames = lockedSurvivors.length > 0
+          ? '\n\nLOCKED (already passed Filter — do not modify): ' + lockedSurvivors.join(', ')
+          : '';
+
         scoutHistory.push({
           role: 'user',
-          content: 'Filter verdict (compressed):\n' + compressed +
-                   '\n\nRefine surviving ideas and replace killed ones with stronger alternatives. All platform constraints still apply. Keep to ' + ideasPerRound + ' ideas.'
+          content: 'Filter verdict (compressed):\n' + compressed + lockedNames +
+                   '\n\nGenerate ' + ideasPerRound + ' ideas total: keep locked ideas exactly as-is, replace killed ideas with genuinely new alternatives. ' +
+                   'For new ideas, make the two-agent handoff structurally necessary — Agent 1 output must be required input for Agent 2. All platform constraints apply.'
         });
       }
     }
 
-    // ── Synthesis v6 — handles null results, pushes back on over-killing ──
+    // ── Synthesis v7 — never returns null ─────────────────
     progressText.textContent = 'Generating final ranked shortlist…';
 
-    var synthMessages = [
-      { role: 'user',
-        content: 'Based on this Scout output and Filter verdict, produce a FINAL RANKED SHORTLIST.\n\n' +
-                 'SCOUT FINAL OUTPUT:\n' + lastScoutOutput + '\n\n' +
-                 'FILTER FINAL VERDICT:\n' + lastFilterOutput + '\n\n' +
-                 'INSTRUCTIONS:\n' +
-                 'If 1 or more ideas survived: rank them using the format below.\n' +
-                 'If a CONDITIONAL SURVIVOR exists: include it with the required fix clearly stated.\n' +
-                 'If the Filter killed everything with no conditional survivor: do not accept this. ' +
-                 'Identify the strongest idea from the Scout output, state what specific change to the idea would make it pass the Filter, and present it as the recommended starting point with that modification.\n\n' +
-                 'For each idea output:\n' +
-                 'RANK [N]: [Title]\n' +
-                 'TRIGGER: [urgency moment — one sentence]\n' +
-                 'DELIVERABLE: [exact document or analysis]\n' +
-                 'AGENTS: [Agent 1 role] vs [Agent 2 role]\n' +
-                 'BUYER: [specific person at moment of purchase]\n' +
-                 'PRICE: [€ per transaction — never per month]\n' +
-                 'STATUS: [SURVIVES / CONDITIONAL — fix required / RECOMMENDED WITH MODIFICATION]\n' +
-                 'WHY: [one sentence]\n\n' +
-                 'End with: RECOMMENDED FIRST BUILD — one idea, 2 sentences on why and what to do first.'
-      }
-    ];
+    var synthMessages = [{
+      role: 'user',
+      content: 'Produce a FINAL RANKED SHORTLIST.\n\n' +
+               'LOCKED SURVIVORS: ' + (lockedSurvivors.join(', ') || 'none') + '\n\n' +
+               'SCOUT FINAL OUTPUT:\n' + lastScoutOutput + '\n\n' +
+               'FILTER FINAL VERDICT:\n' + lastFilterOutput + '\n\n' +
+               'RULES:\n' +
+               'If survivors exist: rank top 3 using format below.\n' +
+               'If only CONDITIONAL SURVIVORs: include with fix clearly stated.\n' +
+               'If nothing survived: find the strongest Scout idea, state the exact modification that makes it viable, present as RECOMMENDED WITH MODIFICATION. Never return a null result.\n\n' +
+               'For each idea:\n' +
+               'RANK [N]: [Title]\n' +
+               'TRIGGER: [urgency moment — one sentence]\n' +
+               'DELIVERABLE: [exact document or analysis]\n' +
+               'AGENTS: [Agent 1 role] → [Agent 2 role] (show the handoff arrow)\n' +
+               'BUYER: [specific person at moment of purchase]\n' +
+               'PRICE: [€ per transaction — never per month]\n' +
+               'STATUS: [SURVIVES / CONDITIONAL — fix required / RECOMMENDED WITH MODIFICATION]\n' +
+               'WHY TWO AGENTS: [one sentence on why single-agent cannot replicate this]\n\n' +
+               'End with: RECOMMENDED FIRST BUILD — one idea, 2 sentences.'
+    }];
 
     var synthesis = await callClaude(apiKey, synthModel,
-      'You are a critical synthesiser. Your job is to always produce an actionable output — never a null result. ' +
-      'If the Filter killed everything, find the strongest idea and state the exact modification that would make it viable. ' +
-      'Price points are always per transaction, never per month. Be specific and direct.',
-      synthMessages, 800);
+      'You are a critical synthesiser. Always produce an actionable output — never a null result. ' +
+      'Show agent handoff with → arrow. Prices are per transaction, never per month. Be specific.',
+      synthMessages, 900);
 
     var finalDiv = document.createElement('div');
     finalDiv.className = 'final-output';
